@@ -28,8 +28,7 @@ public class Power.Services.DeviceManager : Object {
 
     public Services.Backlight backlight { get; construct; }
     public Gee.HashMap<string, Device> devices { get; private set; }
-    public Gee.Iterator batteries { get; private set; }
-    public Device primary_battery { get; private set; }
+    public Gee.Collection<Device> batteries { get; private set; }
     public bool has_battery { get; private set; }
     public bool on_battery { get; private set; }
     public bool on_low_battery { get; private set; }
@@ -105,53 +104,9 @@ public class Power.Services.DeviceManager : Object {
     }
 
     private void update_batteries () {
-        batteries = devices.filter ((entry) => {
-            var device = entry.value;
+        batteries = devices.values;
 
-            return Utils.type_is_battery (device.device_type);
-        });
-
-        has_battery = batteries.has_next ();
-
-        if (has_battery) {
-            update_primary_battery ();
-        }
-    }
-
-    private void update_primary_battery () {
-        Device? main_battery = null;
-        Device? alternate_battery = null;
-
-        devices.@foreach ((entry) => {
-            var device = entry.value;
-            var is_battery = Utils.type_is_battery (device.device_type);
-
-            if (is_battery) {
-                if (device.device_type == DEVICE_TYPE_BATTERY) {
-                    main_battery = device;
-
-                    return false;
-                } else {
-                    if (alternate_battery == null) {
-                        alternate_battery = device;
-                    }
-                }
-            }
-
-            return true;
-        });
-
-        if (has_battery) {
-            if (main_battery != null) {
-                if (primary_battery != main_battery) {
-                    primary_battery = main_battery;
-                }
-            } else if (alternate_battery != null) {
-                if (primary_battery != alternate_battery) {
-                    primary_battery = alternate_battery;
-                }
-            }
-        }
+        has_battery = !batteries.is_empty;
     }
 
     private void register_device (ObjectPath device_path) {

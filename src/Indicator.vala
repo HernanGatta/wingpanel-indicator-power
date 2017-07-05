@@ -17,14 +17,14 @@
  * Boston, MA 02110-1301, USA.
  */
 
+using Power.Services;
+
 public class Power.Indicator : Wingpanel.Indicator {
     private bool is_in_session = false;
 
     private Widgets.DisplayWidget? display_widget = null;
 
     private Widgets.PopoverWidget? popover_widget = null;
-
-    private Services.Device primary_battery;
 
     public Indicator (bool is_in_session) {
         Object (code_name : Wingpanel.Indicator.POWER,
@@ -52,11 +52,11 @@ public class Power.Indicator : Wingpanel.Indicator {
             /* No need to display the indicator when the device is completely in AC mode */
             if (dm.has_battery || dm.backlight.present) {
                 update_visibility ();
-                if (dm.primary_battery != null) {
-                    update_primary_battery ();
+                if (dm.batteries != null) {
+                    update_batteries ();
                     /* No need to display the indicator when the device is completely in AC mode */
                     dm.notify["has-battery"].connect (update_visibility);
-                    dm.notify["primary-battery"].connect (update_primary_battery);
+                    dm.notify["batteries"].connect (update_batteries);
                 } else if (dm.backlight.present) {
                     show_backlight_data ();
                 }
@@ -84,26 +84,47 @@ public class Power.Indicator : Wingpanel.Indicator {
         }
     }
 
-    private void update_primary_battery () {
-        primary_battery = Services.DeviceManager.get_default ().primary_battery;
+    private void update_batteries () {
+        var batteries = Services.DeviceManager.get_default ().batteries;
 
-        show_battery_data (primary_battery);
+        show_battery_data (batteries);
 
-        primary_battery.properties_updated.connect (() => {
-            show_battery_data (primary_battery);
+        batteries.@foreach((battery) => {
+            battery.properties_updated.connect (() => {
+                show_battery_data (batteries);
+            });
+
+            return true;
         });
     }
 
-    private void show_battery_data (Services.Device battery) {
+    private void show_battery_data (Gee.Collection<Device> batteries) {
         if (display_widget != null) {
-            var icon_name = Utils.get_symbolic_icon_name_for_battery (battery);
+            Device firstBattery = null;
+
+            var batteryCount = 0;
+            var sumOfPercentages = 0.0;
+
+            foreach (var battery in batteries) {
+                if (battery.device_type == DEVICE_TYPE_BATTERY) {
+                    batteryCount++;
+                    sumOfPercentages += battery.percentage;
+
+                    if (firstBattery == null) {
+                        firstBattery = battery;
+                    }
+                }
+            }
+
+            var icon_name = Utils.get_symbolic_icon_name_for_battery (firstBattery);
 
             display_widget.set_icon_name (icon_name);
 
             /* Debug output for designers */
             debug ("Icon changed to \"%s\"", icon_name);
 
-            display_widget.set_percent ((int)Math.round (battery.percentage));
+            var percentageAverage = sumOfPercentages / batteryCount;
+            display_widget.set_percent ((int)Math.round (percentageAverage));
     	}
     }
 
